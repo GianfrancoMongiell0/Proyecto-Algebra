@@ -20,7 +20,7 @@ def main():
                 print("¡Hasta luego!")
                 break
             if choice not in [1, 2, 3]:
-                raise ValueError
+                raise ValueError("Selección inválida. Debe ser un número entre 1 y 4.")
             
             # Cargar sistema
             A, b = load_system()
@@ -39,10 +39,10 @@ def main():
             print("\n=== SOLUCIÓN ===")
             print_solution(solution)
             
-        except ValueError:
-            print("Error: Selección inválida. Intente nuevamente.")
+        except ValueError as ve:
+            print(f"Error: {ve}")
         except Exception as e:
-            print(f"Error: {str(e)}")
+            print(f"Error inesperado: {str(e)}")
 
 if __name__ == "__main__":
     main()

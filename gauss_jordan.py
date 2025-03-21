@@ -1,65 +1,70 @@
 # gauss_jordan.py
 import numpy as np
 
-def solve_gauss_jordan(A, b):
+def solve_gauss_jordan(A, b, tol=1e-8):
     """
-    Resuelve el sistema Ax = b usando eliminación de Gauss-Jordan.
-    
-    Args:
-        A: Matriz de coeficientes (n x n)
-        b: Vector de términos independientes (n)
-        
-    Returns:
-        Vector solución x (n) o None si el sistema no tiene solución única.
+    Resuelve Ax = b usando eliminación de Gauss-Jordan con pivoteo completo.
+    Corregido: Paréntesis balanceado en np.unravel_index.
     """
     try:
         A = np.array(A, dtype=np.float64)
         b = np.array(b, dtype=np.float64).flatten()
         n = A.shape[0]
         
-        # Validación de dimensiones
-        if A.shape != (n, n) or b.shape != (n,):
-            raise ValueError("Dimensiones incorrectas de A o b")
+        # Validar dimensiones
+        if A.shape != (n, n) or b.size != n:
+            raise ValueError("Dimensiones incorrectas")
             
         # Matriz aumentada
-        augmented = np.hstack((A, b.reshape(-1, 1)))
+        augmented = np.c_[A, b].astype(np.float64)
+        col_order = list(range(n))  # Seguimiento de permutaciones de columnas
         
-        # Eliminación de Gauss-Jordan
-        for col in range(n):
-            # Pivoteo parcial para evitar división por cero
-            max_row = np.argmax(np.abs(augmented[col:, col])) + col
-            if np.isclose(augmented[max_row, col], 0):
-                return None  # Matriz singular
+        for r in range(n):
+            # Pivoteo completo: buscar máximo en submatriz
+            max_index = np.argmax(np.abs(augmented[r:, r:]))
+            max_row, max_col = np.unravel_index(max_index, (n - r, n - r))
+            max_row += r
+            max_col += r
             
-            # Intercambiar filas
-            augmented[[col, max_row]] = augmented[[max_row, col]]
+            # Intercambiar filas y columnas
+            augmented[[r, max_row]] = augmented[[max_row, r]]  # Filas
+            augmented[:, [r, max_col]] = augmented[:, [max_col, r]]  # Columnas
+            col_order[r], col_order[max_col] = col_order[max_col], col_order[r]
             
+            # Verificar singularidad
+            if np.abs(augmented[r, r]) < tol:
+                return None
+                
             # Normalizar fila pivote
-            pivot = augmented[col, col]
-            augmented[col] /= pivot
+            pivot = augmented[r, r]
+            augmented[r] /= pivot
             
-            # Eliminar en otras filas
-            for r in range(n):
-                if r != col:
-                    factor = augmented[r, col]
-                    augmented[r] -= factor * augmented[col]
+            # Eliminación en todas las filas excepto pivote
+            for i in range(n):
+                if i != r:
+                    factor = augmented[i, r]
+                    augmented[i] -= factor * augmented[r]
         
-        # Verificar consistencia (filas 0x = b?)
-        for row in augmented:
-            if np.allclose(row[:-1], 0) and not np.isclose(row[-1], 0):
-                return None  # Sistema inconsistente
+        # Reordenar columnas y extraer solución
+        solution = np.zeros(n)
+        for idx, original_col in enumerate(col_order):
+            solution[original_col] = augmented[idx, -1]
         
-        # Extraer solución
-        solution = augmented[:, -1]
+        # Verificar consistencia
+        residual = np.abs(augmented[:, -1] - augmented[:, :-1] @ solution)
+        if np.any(residual > 1e-6):
+            return None
+            
         return solution
         
     except Exception as e:
         print(f"Error en Gauss-Jordan: {str(e)}")
         return None
 
-# Ejemplo de uso (para test_cases.py)
+# Ejemplo de uso
 if __name__ == "__main__":
-    A = np.array([[4, -1, 0], [-1, 4, -1], [0, -1, 4]], dtype=float)
-    b = np.array([5, 5, 5], dtype=float)
+    A = [[3, -2, 4], [1, 1, 2], [2, 3, -1]]
+    b = [11, 4, 3]  # Solución exacta: [3, -1, 2]
     sol = solve_gauss_jordan(A, b)
-    print("Solución Gauss-Jordan:", np.round(sol, 4))
+    print("Solución exacta:" if sol is not None else "Sistema incompatible:", 
+          np.round(sol, 10) if sol is not None else "")

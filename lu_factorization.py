@@ -3,7 +3,7 @@ import numpy as np
 
 def solve_lu(A, b):
     """
-    Resuelve Ax = b usando factorización LU con pivoteo parcial (PA = LU).
+    Resuelve Ax = b usando factorización PALU con pivoteo parcial.
     
     Args:
         A: Matriz de coeficientes (n x n)
@@ -19,19 +19,20 @@ def solve_lu(A, b):
         
         # Validar dimensiones
         if A.shape != (n, n) or b.size != n:
-            raise ValueError("Dimensiones incorrectas")
+            raise ValueError("Dimensiones incorrectas de A o b")
             
-        # Inicializar matrices L, U y P
-        L = np.eye(n)
+        # Inicializar matrices
         U = A.copy()
+        L = np.eye(n)
         P = np.eye(n)
         
         for k in range(n-1):
-            # Pivoteo parcial
+            # Pivoteo parcial: encontrar fila con máximo valor en columna k
             max_row = np.argmax(np.abs(U[k:, k])) + k
             if max_row != k:
-                U[[k, max_row]] = U[[max_row, k]]
-                P[[k, max_row]] = P[[max_row, k]]
+                # Intercambiar filas en U, L y P
+                U[[k, max_row], :] = U[[max_row, k], :]
+                P[[k, max_row], :] = P[[max_row, k], :]
                 if k > 0:
                     L[[k, max_row], :k] = L[[max_row, k], :k]
             
@@ -43,18 +44,20 @@ def solve_lu(A, b):
             for j in range(k+1, n):
                 L[j, k] = U[j, k] / U[k, k]
                 U[j, k:] -= L[j, k] * U[k, k:]
-                
-        # Resolver Ly = Pb y Ux = y
-        Pb = np.dot(P, b)
         
-        # Sustitución hacia adelante (L)
+        # Resolver Ly = Pb y Ux = y
+        Pb = P @ b
+        
+        # Sustitución hacia adelante (Ly = Pb)
         y = np.zeros(n)
         for i in range(n):
             y[i] = Pb[i] - np.dot(L[i, :i], y[:i])
         
-        # Sustitución hacia atrás (U)
+        # Sustitución hacia atrás (Ux = y)
         x = np.zeros(n)
-        for i in range(n-1, -1, -1):
+        for i in reversed(range(n)):
+            if np.isclose(U[i, i], 0):
+                return None
             x[i] = (y[i] - np.dot(U[i, i+1:], x[i+1:])) / U[i, i]
             
         return x
@@ -63,10 +66,12 @@ def solve_lu(A, b):
         print(f"Error en LU: {str(e)}")
         return None
 
-# Ejemplo de uso (para test_cases.py)
+# Ejemplo de uso con pivoteo
 if __name__ == "__main__":
-    # Sistema que requiere pivoteo
-    A = [[0, 2, 3], [4, 5, 6], [7, 8, 9]]
+    A = [[0, 2, 3], 
+         [4, 5, 6], 
+         [7, 8, 9]]
     b = [3, 6, 9]
+    
     sol = solve_lu(A, b)
-    print("Solución LU/PALU:", np.round(sol, 4) if sol is not None else "Sistema singular")
+    print("Solución LU/PALU:", np.round(sol, 4) if sol is not None else "Matriz singular")
